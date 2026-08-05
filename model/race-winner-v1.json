@@ -1,0 +1,66 @@
+{
+  "version": "race-winner-logistic-platt-v1",
+  "trainedAt": "2026-08-05T18:53:48.029752+00:00",
+  "featureNames": [
+    "driver_points_before",
+    "driver_wins_before",
+    "driver_avg_finish_last5",
+    "team_points_before",
+    "team_avg_finish_last5",
+    "circuit_driver_avg_finish",
+    "dnf_rate_last10",
+    "grid_position",
+    "qualifying_position"
+  ],
+  "means": {
+    "driver_points_before": 49.477096966091615,
+    "driver_wins_before": 0.48720999405116,
+    "driver_avg_finish_last5": 10.853400753519729,
+    "team_points_before": 99.34324806662701,
+    "team_avg_finish_last5": 11.251635930993457,
+    "circuit_driver_avg_finish": 14.89559785841761,
+    "dnf_rate_last10": 0.1919559644202714,
+    "grid_position": 10.669839381320642,
+    "qualifying_position": 10.635633551457465
+  },
+  "scales": {
+    "driver_points_before": 72.19918461802838,
+    "driver_wins_before": 1.644845755055806,
+    "driver_avg_finish_last5": 4.420251801116695,
+    "team_points_before": 139.74902175478414,
+    "team_avg_finish_last5": 4.233142583703246,
+    "circuit_driver_avg_finish": 1.0938086057458782,
+    "dnf_rate_last10": 0.20289257248342393,
+    "grid_position": 5.881931763549179,
+    "qualifying_position": 5.856926199247444
+  },
+  "coefficients": [
+    0.04177718511731931,
+    0.696085156666928,
+    -0.05891449761916131,
+    -0.40000589522966046,
+    -0.361840561890243,
+    0.008019488094321294,
+    0.03559236941156807,
+    -1.2690295772950004,
+    -1.4281654550634764
+  ],
+  "intercept": -3.091028034067811,
+  "calibration": {
+    "coefficient": 0.8133811691908253,
+    "intercept": -2.5915775311192393,
+    "season": 2024
+  },
+  "metrics": {
+    "training_seasons_through": 2023,
+    "calibration_season": 2024,
+    "holdout_season": 2025,
+    "training_rows": 3362,
+    "calibration_rows": 479,
+    "test_rows": 479,
+    "test_roc_auc": 0.9643,
+    "test_average_precision": 0.5061,
+    "test_brier_score": 0.0322
+  },
+  "limitations": "Grid/qualifying are unavailable until race week; historical means are used before then."
+}
