@@ -2,7 +2,7 @@
   "name": "apex-f1-dashboard",
   "version": "1.0.0",
   "private": true,
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start", "lint": "next lint" },
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start", "lint": "eslint .", "test": "python -m unittest discover -s tests -p test_*.py", "model:data": "python scripts/build_dataset.py", "model:train": "python scripts/train_model_sklearn.py", "model:update": "python scripts/update_model.py" },
   "dependencies": { "next": "15.5.22", "react": "19.0.0", "react-dom": "19.0.0" },
-  "devDependencies": { "@types/node": "^22", "@types/react": "^19", "@types/react-dom": "^19", "typescript": "^5" }
+  "devDependencies": { "@eslint/eslintrc": "^3", "@types/node": "^22", "@types/react": "^19", "@types/react-dom": "^19", "eslint": "^9", "eslint-config-next": "15.5.22", "typescript": "^5" }
 }

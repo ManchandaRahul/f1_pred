@@ -20,25 +20,33 @@ Open `http://localhost:3000`. Deploy by importing this folder into Vercel or run
 | --- | --- |
 | `/api/standings` | Current championship driver standings |
 | `/api/races` | Current calendar, circuit, location, and completed/upcoming status |
-| `/api/predictions` | Ranking based on current points and wins |
+| `/api/predictions` | Championship outlook or ML race-win probabilities |
 
 Pass `?round=<round>` to `/api/predictions` for a selected race. The UI exposes this as the **Race Predictions** tab; **Championship Outlook** is intentionally kept separate. The Driver Standings tab has a **Refresh standings** control. It sends `?refresh=1`, bypassing the 15-minute server cache and requesting the upstream source immediately.
 
 Set `F1_API_BASE_URL` only if you host or subscribe to an Ergast-compatible API. No token is needed by the default provider. Do not prefix server-only variables with `NEXT_PUBLIC_`.
 
-## Prediction workflow
+## Prediction intelligence
 
-The shipped prediction route uses a deliberately interpretable baseline: normalized championship points (65%) and wins (35%). It produces a relative likelihood and confidence label, never a claim of certainty. This is suitable for the dashboard demo and is not betting advice.
+Championship outlook remains a transparent points-and-wins form estimate. Race Predictions use `race-winner-gbt-v2`, a two-stage gradient-boosted tree system:
 
-For a trained race model, first build the complete dataset. Jolpica pages API results at 100 records, and the builder handles every page; a 2025 holdout should contain roughly 400 driver-race rows, not 100.
+- **Early-week model:** current points and wins, live recent driver/team finishes, DNF rate, and cross-season driver/team circuit history.
+- **Race-week model:** all early-week features plus grid and qualifying position. It activates automatically once qualifying is substantially complete.
+- Probabilities are normalized across the current field and always total 100%.
+- The API reads completed current-season results on every cached refresh, so recent form changes after each race even before the model is retrained.
+
+The committed artifact was trained on 4,562 driver-race rows from 2016 through 2026 round 11. On the chronological 2025 holdout, the early model achieved 25.0% winner top-one and 66.7% top-three accuracy; the race-week model achieved 58.3% top-one and 100% top-three accuracy. These historical metrics are not guarantees and the predictions are not betting advice.
+
+To rebuild through the latest completed race:
 
 ```bash
-python scripts/build_dataset.py --start 2016 --end 2025
 python -m pip install -r requirements-ml.txt
-python scripts/train_model_sklearn.py
+npm run model:update
 ```
 
-The builder fetches every season's results and qualifying sessions from Jolpica and produces one pre-race row per driver. It derives rolling driver/team form, points, wins, DNFs, grid and qualifying positions, and circuit history without leaking same-race results into features. The recommended trainer uses scikit-learn, keeps the last season as a holdout and the preceding season for Platt probability calibration, reports ROC-AUC, average precision, and Brier score, then writes `model/race-winner-v1.json`. That JSON is used directly by the Next.js prediction API. The manual refresh fetches qualifying data when it becomes available during race week; until then, the model uses learned historical means for those features.
+The builder handles Jolpica's 100-row pagination and carries circuit history across season boundaries without exposing same-race results to the features. Training performs chronological, race-grouped evaluation and then refits both deployed models on all completed races through today. The resulting `model/race-winner-v2.json` is evaluated directly in TypeScript, so the Vercel runtime does not require Python.
+
+The weekly GitHub Actions workflow runs every Monday and commits a new artifact only when newly completed race data changes the model. It can also be started manually from the Actions tab.
 
 ## Structure
 
@@ -47,9 +55,11 @@ app/                 pages, global styling, serverless API routes
 components/          reusable dashboard views
 lib/                 domain types, F1 gateway, fallback data, predictor
 scripts/build_dataset.py  historical data and feature generation
-scripts/train_model.py    time-split ML training and model export
-scripts/train_model_sklearn.py  recommended calibrated scikit-learn trainer
+scripts/train_model_sklearn.py  chronological GBT training, evaluation, and export
+scripts/update_model.py   rebuild-and-retrain entry point
 model/                    deployable model artifact
+.github/workflows/        weekly model evolution workflow
+tests/                    dataset and artifact integrity tests
 ```
 
 ## Notes
@@ -57,3 +67,4 @@ model/                    deployable model artifact
 - API route errors are contained and the UI has loading/error states.
 - The F1 provider is changeable with one environment variable.
 - The UI uses no chart dependency; the dashboard chart is an accessible CSS/SVG-free data bar implementation, keeping the client bundle small.
+- Run `npm test`, `npm run lint`, and `npm run build` before deployment.
