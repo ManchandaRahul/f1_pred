@@ -1,4 +1,4 @@
-import trainedModel from "@/model/race-winner-v2.json";
+import trainedModel from "@/model/race-winner-v3.json";
 import type { CompletedRaceResult, Driver, Prediction, Race } from "./types";
 
 type ExportedTree = {
@@ -13,7 +13,7 @@ type ModelArtifact = {
   version: string;
   dataThrough: { season: number; round: number; date?: string };
   featureDefaults: Record<string, number>;
-  models: { early: ExportedEnsemble; raceWeek: ExportedEnsemble };
+  models: { early: ExportedEnsemble; sprintWeek: ExportedEnsemble; raceWeek: ExportedEnsemble };
   profiles: { driverCircuitFinish: Record<string, number>; teamCircuitFinish: Record<string, number> };
 };
 
@@ -64,13 +64,16 @@ export function predictRace(
   drivers: Driver[],
   race: Race,
   qualifyingPositions: Record<string, number> = {},
+  sprintPositions: Record<string, number> = {},
   completedResults: CompletedRaceResult[] = []
-): { predictions: Prediction[]; stage: "early" | "race-week"; modelVersion: string; dataThrough: ModelArtifact["dataThrough"] } {
+): { predictions: Prediction[]; stage: "early" | "sprint-week" | "race-week"; modelVersion: string; dataThrough: ModelArtifact["dataThrough"]; risk: { level: "High" | "Medium" | "Low"; reasons: string[] } } {
   const targetRound = Number(race.round);
   const priorResults = completedResults.filter((result) => result.round < targetRound).sort((a, b) => a.round - b.round);
   const qualifyingCount = drivers.filter((driver) => qualifyingPositions[driver.code] != null).length;
+  const sprintCount = drivers.filter((driver) => sprintPositions[driver.code] != null).length;
   const raceWeek = qualifyingCount >= Math.max(1, Math.ceil(drivers.length * 0.7));
-  const ensemble = raceWeek ? model.models.raceWeek : model.models.early;
+  const sprintWeek = !raceWeek && sprintCount >= Math.max(1, Math.ceil(drivers.length * 0.7));
+  const ensemble = raceWeek ? model.models.raceWeek : sprintWeek ? model.models.sprintWeek : model.models.early;
   const pointsMax = Math.max(...drivers.map((driver) => driver.points), 1);
   const winsMax = Math.max(...drivers.map((driver) => driver.wins), 1);
 
@@ -92,6 +95,8 @@ export function predictRace(
       circuit_driver_avg_finish: model.profiles.driverCircuitFinish[`${race.circuitId}|${driver.id}`] ?? model.featureDefaults.circuit_driver_avg_finish,
       circuit_team_avg_finish: model.profiles.teamCircuitFinish[`${race.circuitId}|${driver.teamId}`] ?? model.featureDefaults.circuit_team_avg_finish,
       dnf_rate_last10: mean(recentDnf.map((result) => Number(isDnf(result.status))), model.featureDefaults.dnf_rate_last10),
+      sprint_available: sprintWeek || raceWeek ? Number(sprintCount > 0) : 0,
+      sprint_position: sprintPositions[driver.code] ?? 0,
       qualifying_position: qualifying ?? model.featureDefaults.qualifying_position,
       grid_position: qualifying ?? model.featureDefaults.grid_position,
     };
@@ -108,5 +113,12 @@ export function predictRace(
     winProbability: percentages[index],
     confidence: confidenceForRace(percentages[index])
   })).sort((a, b) => b.winProbability - a.winProbability);
-  return { predictions, stage: raceWeek ? "race-week" : "early", modelVersion: model.version, dataThrough: model.dataThrough };
+  const topGap = (predictions[0]?.winProbability ?? 0) - (predictions[1]?.winProbability ?? 0);
+  const reasons = [
+    ...(topGap < 5 ? ["The leading probabilities are close, so execution can change the outcome."] : []),
+    ...(!raceWeek ? ["Grand Prix qualifying is not yet available."] : []),
+    ...(sprintWeek ? ["Sprint result is included, but tyre strategy and race interruptions remain uncertain."] : ["Tyre strategy, Safety Cars, weather, damage and penalties are not predictable inputs."])
+  ];
+  const level = topGap < 5 || !raceWeek ? "High" : topGap < 10 ? "Medium" : "Low";
+  return { predictions, stage: raceWeek ? "race-week" : sprintWeek ? "sprint-week" : "early", modelVersion: model.version, dataThrough: model.dataThrough, risk: { level, reasons } };
 }

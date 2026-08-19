@@ -7,7 +7,7 @@ type JolpicaDriver = { driverId: string; code?: string; givenName: string; famil
 type JolpicaConstructor = { constructorId: string; name: string };
 type JolpicaCircuit = { circuitId: string; circuitName: string; Location: { locality: string; country: string } };
 type JolpicaResult = { position: string; status?: string; Driver: JolpicaDriver; Constructor: JolpicaConstructor };
-type JolpicaRace = { round: string; raceName: string; date: string; time?: string; Circuit: JolpicaCircuit; Results?: JolpicaResult[]; QualifyingResults?: Array<{ position: string; Driver: JolpicaDriver }> };
+type JolpicaRace = { round: string; raceName: string; date: string; time?: string; Circuit: JolpicaCircuit; Results?: JolpicaResult[]; SprintResults?: JolpicaResult[]; QualifyingResults?: Array<{ position: string; Driver: JolpicaDriver }> };
 type JolpicaResponse = { MRData?: { limit?: string; total?: string; RaceTable?: { Races?: JolpicaRace[] }; StandingsTable?: { StandingsLists?: Array<{ DriverStandings?: Array<{ position: string; points: string; wins: string; Driver: JolpicaDriver; Constructors?: JolpicaConstructor[] }> }> } } };
 
 async function f1Fetch(path: string, fresh = false): Promise<JolpicaResponse> {
@@ -73,6 +73,16 @@ export async function getQualifying(round: string, fresh = false): Promise<Recor
     const json = await f1Fetch(`current/${round}/qualifying.json`, fresh);
     const results = json.MRData?.RaceTable?.Races?.[0]?.QualifyingResults ?? [];
     return Object.fromEntries(results.map((result) => [result.Driver.code ?? result.Driver.driverId.slice(0, 3).toUpperCase(), Number(result.position)]));
+  } catch {
+    return {};
+  }
+}
+
+export async function getSprintResults(round: string, fresh = false): Promise<Record<string, number>> {
+  try {
+    const json = await f1Fetch(`current/${round}/sprint.json`, fresh);
+    const results = json.MRData?.RaceTable?.Races?.[0]?.SprintResults ?? [];
+    return Object.fromEntries(results.map((result) => [result.Driver.code ?? result.Driver.driverId.slice(0, 3).toUpperCase(), Number(result.position) || 20]));
   } catch {
     return {};
   }

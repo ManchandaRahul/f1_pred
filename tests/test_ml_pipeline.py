@@ -38,14 +38,15 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(first[0]["circuit_driver_avg_finish"], 15)
         self.assertEqual(second[0]["circuit_driver_avg_finish"], 4)
 
-    def test_exported_model_contains_both_prediction_stages(self):
-        artifact = json.loads(Path("model/race-winner-v2.json").read_text(encoding="utf-8"))
-        self.assertEqual(artifact["version"], "race-winner-gbt-v2")
+    def test_exported_model_contains_all_prediction_stages(self):
+        artifact = json.loads(Path("model/race-winner-v3.json").read_text(encoding="utf-8"))
+        self.assertEqual(artifact["version"], "race-winner-gbt-v3")
         self.assertGreater(artifact["trainingRows"], 4000)
-        self.assertEqual(set(artifact["models"]), {"early", "raceWeek"})
+        self.assertEqual(set(artifact["models"]), {"early", "sprintWeek", "raceWeek"})
         self.assertGreater(len(artifact["models"]["early"]["trees"]), 100)
         self.assertIn("qualifying_position", artifact["models"]["raceWeek"]["featureNames"])
         self.assertNotIn("qualifying_position", artifact["models"]["early"]["featureNames"])
+        self.assertIn("sprint_position", artifact["models"]["sprintWeek"]["featureNames"])
 
 
 if __name__ == "__main__":

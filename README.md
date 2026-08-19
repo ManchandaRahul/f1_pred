@@ -28,14 +28,17 @@ Set `F1_API_BASE_URL` only if you host or subscribe to an Ergast-compatible API.
 
 ## Prediction intelligence
 
-Championship outlook remains a transparent points-and-wins form estimate. Race Predictions use `race-winner-gbt-v2`, a two-stage gradient-boosted tree system:
+Championship outlook remains a transparent points-and-wins form estimate. Race Predictions use `race-winner-gbt-v3`, a three-stage gradient-boosted tree system:
 
 - **Early-week model:** current points and wins, live recent driver/team finishes, DNF rate, and cross-season driver/team circuit history.
-- **Race-week model:** all early-week features plus grid and qualifying position. It activates automatically once qualifying is substantially complete.
+- **Sprint-informed model:** activates when a Sprint Result is published, using that result as a trained weekend-pace feature.
+- **Race-week model:** all early-week features plus Sprint Result when available, grid and qualifying position. It activates automatically once qualifying is substantially complete.
 - Probabilities are normalized across the current field and always total 100%.
 - The API reads completed current-season results on every cached refresh, so recent form changes after each race even before the model is retrained.
 
-The committed artifact was trained on 4,562 driver-race rows from 2016 through 2026 round 11. On the chronological 2025 holdout, the early model achieved 25.0% winner top-one and 66.7% top-three accuracy; the race-week model achieved 58.3% top-one and 100% top-three accuracy. These historical metrics are not guarantees and the predictions are not betting advice.
+The committed artifact was trained on 4,562 driver-race rows from 2016 through 2026 round 11. On the chronological 2025 holdout, the early model achieved 25.0% winner top-one and 66.7% top-three accuracy; the Sprint-informed model achieved 33.3% top-one and 66.7% top-three accuracy across the six Sprint rounds; the race-week model achieved 58.3% top-one and 100% top-three accuracy. These historical metrics are not guarantees and the predictions are not betting advice.
+
+The **Race Review** tab compares the official winner with the forecast saved automatically in the viewer's browser before the race. It preserves the stage and probability that were visible at the time, so strategy, Safety Cars, weather, damage, penalties, and other execution factors are made visible as outcome risk rather than silently mislabelled as a model error.
 
 To rebuild through the latest completed race:
 
@@ -44,7 +47,7 @@ python -m pip install -r requirements-ml.txt
 npm run model:update
 ```
 
-The builder handles Jolpica's 100-row pagination and carries circuit history across season boundaries without exposing same-race results to the features. Training performs chronological, race-grouped evaluation and then refits both deployed models on all completed races through today. The resulting `model/race-winner-v2.json` is evaluated directly in TypeScript, so the Vercel runtime does not require Python.
+The builder handles Jolpica's 100-row pagination and carries circuit history across season boundaries without exposing same-race results to the features. Training performs chronological, race-grouped evaluation and then refits all three deployed models on completed races through today. The resulting `model/race-winner-v3.json` is evaluated directly in TypeScript, so the Vercel runtime does not require Python.
 
 The weekly GitHub Actions workflow runs every Monday and commits a new artifact only when newly completed race data changes the model. It can also be started manually from the Actions tab.
 

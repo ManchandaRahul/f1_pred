@@ -37,7 +37,7 @@ def fetch(path: str) -> dict:
 def races(season: int, kind: str) -> list[dict]:
     """Merge Jolpica's 100-row pages back into complete race objects."""
     offset, merged = 0, {}
-    collection_key = "Results" if kind == "results" else "QualifyingResults"
+    collection_key = {"results": "Results", "qualifying": "QualifyingResults", "sprint": "SprintResults"}[kind]
     while True:
         data = fetch(f"{season}/{kind}.json?limit=100&offset={offset}")["MRData"]
         for race in data["RaceTable"].get("Races", []):
@@ -67,6 +67,12 @@ def build_season(season: int, circuit_history: dict[str, defaultdict]) -> list[d
         for race in races(season, "qualifying")
         for result in race.get("QualifyingResults", [])
     }
+    sprint = {
+        (race["round"], result["Driver"]["driverId"]): int(result["position"]) if result.get("position", "").isdigit() else 20
+        for race in races(season, "sprint")
+        for result in race.get("SprintResults", [])
+    }
+    sprint_rounds = {round_id for round_id, _ in sprint}
     points, wins, team_points = defaultdict(float), defaultdict(int), defaultdict(float)
     driver_finish = defaultdict(lambda: deque(maxlen=5))
     team_finish = defaultdict(lambda: deque(maxlen=10))
@@ -100,6 +106,8 @@ def build_season(season: int, circuit_history: dict[str, defaultdict]) -> list[d
                 "circuit_driver_avg_finish": mean(circuit_history["driver"][(circuit, driver)], 15),
                 "circuit_team_avg_finish": mean(circuit_history["team"][(circuit, team)], 15),
                 "dnf_rate_last10": mean(dnf[driver], 0),
+                "sprint_available": int(round_id in sprint_rounds),
+                "sprint_position": sprint.get((round_id, driver), 0),
                 "grid_position": grid,
                 "qualifying_position": qualifying.get((round_id, driver), grid),
                 "finish_position": position,

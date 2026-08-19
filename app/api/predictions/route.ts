@@ -1,4 +1,4 @@
-import { getQualifying, getRaces, getSeasonResults, getStandings } from "@/lib/f1-api";
+import { getQualifying, getRaces, getSeasonResults, getSprintResults, getStandings } from "@/lib/f1-api";
 import { predict, predictRace } from "@/lib/predictor";
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const [{ races }, seasonForm] = await Promise.all([getRaces(fresh), getSeasonResults(fresh)]);
   const race = races.find((item) => item.round === round);
   if (!race) return Response.json({ error: "Race not found" }, { status: 404 });
-  const qualifyingPositions = await getQualifying(round, fresh);
-  const prediction = predictRace(drivers, race, qualifyingPositions, seasonForm.results);
+  const [qualifyingPositions, sprintPositions] = await Promise.all([getQualifying(round, fresh), getSprintResults(round, fresh)]);
+  const prediction = predictRace(drivers, race, qualifyingPositions, sprintPositions, seasonForm.results);
   return Response.json({ ...prediction, source, race, qualifyingAvailable: prediction.stage === "race-week", liveFormThroughRound: seasonForm.throughRound });
 }

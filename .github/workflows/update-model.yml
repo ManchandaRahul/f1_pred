@@ -22,12 +22,12 @@ jobs:
       - run: python scripts/update_model.py
       - name: Commit a newly evolved artifact
         run: |
-          if git diff --quiet -- model/race-winner-v2.json; then
+          if git diff --quiet -- model/race-winner-v3.json; then
             echo "No newly completed race; model is unchanged."
             exit 0
           fi
           git config user.name "apex-f1-model-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add model/race-winner-v2.json
+          git add model/race-winner-v3.json
           git commit -m "Update F1 model with latest completed races"
           git push

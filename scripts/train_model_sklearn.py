@@ -17,8 +17,8 @@ from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_s
 
 DATA = Path("data/historical_race_features.csv")
 METADATA = Path("data/dataset_metadata.json")
-OUT = Path("model/race-winner-v2.json")
-ARTIFACT_VERSION = "race-winner-gbt-v2"
+OUT = Path("model/race-winner-v3.json")
+ARTIFACT_VERSION = "race-winner-gbt-v3"
 
 EARLY_FEATURES = [
     "driver_points_before",
@@ -30,7 +30,8 @@ EARLY_FEATURES = [
     "circuit_team_avg_finish",
     "dnf_rate_last10",
 ]
-RACE_WEEK_FEATURES = EARLY_FEATURES + ["grid_position", "qualifying_position"]
+SPRINT_WEEK_FEATURES = EARLY_FEATURES + ["sprint_position"]
+RACE_WEEK_FEATURES = EARLY_FEATURES + ["sprint_available", "sprint_position", "grid_position", "qualifying_position"]
 
 
 def sample_weights(target: pd.Series) -> np.ndarray:
@@ -132,10 +133,15 @@ def main() -> None:
         raise RuntimeError("Need multiple completed seasons for chronological evaluation")
 
     evaluation = {}
-    for name, features in (("early", EARLY_FEATURES), ("raceWeek", RACE_WEEK_FEATURES)):
-        evaluation[name] = evaluate(train(train_frame, features), test_frame, features)
+    for name, features, subset in (
+        ("early", EARLY_FEATURES, test_frame),
+        ("sprintWeek", SPRINT_WEEK_FEATURES, test_frame[test_frame.sprint_available == 1]),
+        ("raceWeek", RACE_WEEK_FEATURES, test_frame),
+    ):
+        evaluation[name] = evaluate(train(train_frame[train_frame.sprint_available == 1] if name == "sprintWeek" else train_frame, features), subset, features)
 
     deployed_early = train(frame, EARLY_FEATURES)
+    deployed_sprint_week = train(frame[frame.sprint_available == 1], SPRINT_WEEK_FEATURES)
     deployed_race_week = train(frame, RACE_WEEK_FEATURES)
     metadata = json.loads(METADATA.read_text(encoding="utf-8")) if METADATA.exists() else {}
     data_through = metadata.get("data_through", {"season": years[-1], "round": int(frame[frame.season == years[-1]]["round"].max())})
@@ -151,6 +157,7 @@ def main() -> None:
         "featureDefaults": {feature: round(float(frame[feature].mean()), 6) for feature in RACE_WEEK_FEATURES},
         "models": {
             "early": export_model(deployed_early, EARLY_FEATURES),
+            "sprintWeek": export_model(deployed_sprint_week, SPRINT_WEEK_FEATURES),
             "raceWeek": export_model(deployed_race_week, RACE_WEEK_FEATURES),
         },
         "profiles": {
